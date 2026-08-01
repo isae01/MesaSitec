@@ -77,7 +77,8 @@ async function abrirModal(accion: string) {
   motivo.value = "";
   agenteSeleccionado.value = "";
   if (accion === "asignar") {
-    const { data } = await http.get("/categorias"); // placeholder, cambiamos abajo
+    const { data } = await http.get("/usuarios/agentes");
+    agentes.value = data;
   }
   modalAbierto.value = true;
 }
@@ -179,12 +180,16 @@ async function confirmarAccion() {
         <h3>Confirmar: {{ accionActual }}</h3>
 
         <div v-if="accionActual === 'asignar'">
-          <label>Agente (ID)</label>
-          <input
+          <label>Agente</label>
+          <select
             data-testid="modal-select-agente"
             v-model="agenteSeleccionado"
-            placeholder="ID del agente"
-          />
+          >
+            <option value="" disabled>Selecciona...</option>
+            <option v-for="a in agentes" :key="a.id" :value="a.id">
+              {{ a.nombre }}
+            </option>
+          </select>
         </div>
 
         <div v-if="accionActual === 'resolver' || accionActual === 'cancelar'">

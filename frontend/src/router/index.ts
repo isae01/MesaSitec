@@ -26,6 +26,13 @@ const router = createRouter({
       component: () => import("../views/SolicitudDetalleView.vue"),
       meta: { requiereAuth: true },
     },
+
+    {
+      path: "/solicitudes/:id/editar",
+      name: "solicitud-editar",
+      component: () => import("../views/SolicitudFormView.vue"),
+      meta: { requiereAuth: true },
+    },
     { path: "/", redirect: "/solicitudes" },
   ],
 });

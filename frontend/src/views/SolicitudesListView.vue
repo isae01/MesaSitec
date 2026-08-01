@@ -8,18 +8,30 @@ import type { SolicitudesPaginadas } from "../types/solicitud";
 const router = useRouter();
 const authStore = useAuthStore();
 
-// Los 3 estados que pide el enunciado sección 7.2: cargando, vacío, error
 const cargando = ref(true);
 const error = ref("");
 const datos = ref<SolicitudesPaginadas | null>(null);
 const page = ref(1);
+
+// Filtros
+const filtroEstado = ref("");
+const filtroPrioridad = ref("");
+const filtroBusqueda = ref("");
+const filtroVencidas = ref(false);
 
 async function cargar() {
   cargando.value = true;
   error.value = "";
   try {
     const { data } = await http.get<SolicitudesPaginadas>("/solicitudes", {
-      params: { page: page.value, pageSize: 20 },
+      params: {
+        page: page.value,
+        pageSize: 20,
+        estado: filtroEstado.value || undefined,
+        prioridad: filtroPrioridad.value || undefined,
+        q: filtroBusqueda.value || undefined,
+        vencidas: filtroVencidas.value || undefined,
+      },
     });
     datos.value = data;
   } catch (e) {
@@ -29,11 +41,24 @@ async function cargar() {
   }
 }
 
-// onMounted = como useEffect(() => {...}, []) — corre una vez al montar el componente
 onMounted(() => {
-  authStore.cargarUsuarioActual(); // reconstruye la sesión si venimos de un refresh
+  authStore.cargarUsuarioActual();
   cargar();
 });
+
+function aplicarFiltros() {
+  page.value = 1;
+  cargar();
+}
+
+function limpiarFiltros() {
+  filtroEstado.value = "";
+  filtroPrioridad.value = "";
+  filtroBusqueda.value = "";
+  filtroVencidas.value = false;
+  page.value = 1;
+  cargar();
+}
 
 function irADetalle(id: string) {
   router.push(`/solicitudes/${id}`);
@@ -65,6 +90,58 @@ function cambiarPagina(nueva: number) {
       </button>
     </div>
 
+    <div class="filtros">
+      <select
+        data-testid="filtro-estado"
+        v-model="filtroEstado"
+        @change="aplicarFiltros"
+      >
+        <option value="">Todos los estados</option>
+        <option value="Nueva">Nueva</option>
+        <option value="Asignada">Asignada</option>
+        <option value="EnProceso">EnProceso</option>
+        <option value="Resuelta">Resuelta</option>
+        <option value="Cerrada">Cerrada</option>
+        <option value="Cancelada">Cancelada</option>
+      </select>
+
+      <select
+        data-testid="filtro-prioridad"
+        v-model="filtroPrioridad"
+        @change="aplicarFiltros"
+      >
+        <option value="">Todas las prioridades</option>
+        <option value="Baja">Baja</option>
+        <option value="Media">Media</option>
+        <option value="Alta">Alta</option>
+        <option value="Critica">Crítica</option>
+      </select>
+
+      <select data-testid="filtro-categoria" disabled>
+        <option value="">Todas las categorías</option>
+      </select>
+
+      <label>
+        <input
+          data-testid="filtro-vencidas"
+          type="checkbox"
+          v-model="filtroVencidas"
+          @change="aplicarFiltros"
+        />
+        Solo vencidas
+      </label>
+
+      <input
+        data-testid="filtro-busqueda"
+        v-model="filtroBusqueda"
+        placeholder="Buscar..."
+        @keyup.enter="aplicarFiltros"
+      />
+
+      <button data-testid="btn-limpiar-filtros" @click="limpiarFiltros">
+        Limpiar filtros
+      </button>
+    </div>
     <!-- Estado: cargando -->
     <p v-if="cargando" data-testid="listado-cargando">Cargando...</p>
 
@@ -182,5 +259,17 @@ tbody tr:hover {
 button {
   padding: 0.5rem 1rem;
   cursor: pointer;
+}
+
+.filtros {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filtros select,
+.filtros input {
+  padding: 0.4rem;
 }
 </style>

@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, onMounted, computed } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import http from "../api/http";
 import type { Prioridad } from "../types/solicitud";
 
 const router = useRouter();
+const route = useRoute();
+
+// Si la URL trae :id, estamos editando; si no, estamos creando
+const idEdicion = route.params.id as string | undefined;
+const esEdicion = computed(() => !!idEdicion);
 
 const categorias = ref<{ id: string; nombre: string }[]>([]);
 const titulo = ref("");
@@ -17,10 +22,21 @@ const errorDescripcion = ref("");
 const errorCategoria = ref("");
 const errorGeneral = ref("");
 const enviando = ref(false);
+const cargando = ref(false);
 
 onMounted(async () => {
   const { data } = await http.get("/categorias");
   categorias.value = data;
+
+  if (esEdicion.value) {
+    cargando.value = true;
+    const { data: s } = await http.get(`/solicitudes/${idEdicion}`);
+    titulo.value = s.titulo;
+    descripcion.value = s.descripcion;
+    categoriaId.value = s.categoria.id;
+    prioridad.value = s.prioridad;
+    cargando.value = false;
+  }
 });
 
 function validar(): boolean {
@@ -42,16 +58,23 @@ async function guardar() {
 
   enviando.value = true;
   try {
-    const { data } = await http.post("/solicitudes", {
+    const body = {
       titulo: titulo.value,
       descripcion: descripcion.value,
       categoriaId: categoriaId.value,
       prioridad: prioridad.value,
-    });
-    router.push(`/solicitudes/${data.id}`);
+    };
+
+    if (esEdicion.value) {
+      await http.put(`/solicitudes/${idEdicion}`, body);
+      router.push(`/solicitudes/${idEdicion}`);
+    } else {
+      const { data } = await http.post("/solicitudes", body);
+      router.push(`/solicitudes/${data.id}`);
+    }
   } catch (e: any) {
     errorGeneral.value =
-      e.response?.data?.detail ?? "Error al crear la solicitud.";
+      e.response?.data?.detail ?? "Error al guardar la solicitud.";
   } finally {
     enviando.value = false;
   }
@@ -60,12 +83,14 @@ async function guardar() {
 
 <template>
   <div class="contenedor">
-    <button data-testid="form-cancelar" @click="router.push('/solicitudes')">
+    <button data-testid="form-cancelar" @click="router.back()">
       ← Cancelar
     </button>
-    <h1>Nueva solicitud</h1>
+    <h1>{{ esEdicion ? "Editar solicitud" : "Nueva solicitud" }}</h1>
 
-    <form @submit.prevent="guardar" class="form">
+    <p v-if="cargando">Cargando...</p>
+
+    <form v-else @submit.prevent="guardar" class="form">
       <label>Título</label>
       <input data-testid="form-titulo" v-model="titulo" />
       <p v-if="errorTitulo" data-testid="error-titulo" class="error">
@@ -100,7 +125,13 @@ async function guardar() {
       <p v-if="errorGeneral" class="error">{{ errorGeneral }}</p>
 
       <button data-testid="form-submit" type="submit" :disabled="enviando">
-        {{ enviando ? "Guardando..." : "Crear solicitud" }}
+        {{
+          enviando
+            ? "Guardando..."
+            : esEdicion
+              ? "Guardar cambios"
+              : "Crear solicitud"
+        }}
       </button>
     </form>
   </div>
